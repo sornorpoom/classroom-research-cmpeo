@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         quizResultView: document.getElementById('quiz-result-view'),
         quizChaptersList: document.getElementById('quiz-chapters-list'),
         mockExamBtn: document.getElementById('mock-exam-btn'),
+        quizCancelBtn: document.getElementById('quiz-cancel-btn'),
         
         // Promotion Tab
         promoLevelBtns: document.querySelectorAll('.level-btn'),
@@ -88,6 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     elements.themeToggleBtn.addEventListener('click', toggleTheme);
+    if (elements.quizCancelBtn) {
+        elements.quizCancelBtn.addEventListener('click', cancelQuiz);
+    }
     
     // Sidebar Navigation Tabs
     elements.navItems.forEach(item => {
@@ -137,6 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             elements.themeIconSun.style.display = 'block';
             elements.themeIconMoon.style.display = 'none';
+        }
+    }
+
+    function cancelQuiz() {
+        if (confirm("คุณต้องการยกเลิกการทำข้อสอบนี้ใช่หรือไม่? คะแนนที่ทำไว้จะไม่ได้รับการบันทึก")) {
+            stopTimer();
+            state.activeQuiz.isActive = false;
+            renderQuizTab();
         }
     }
 
@@ -460,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 c.questions.forEach(q => {
                     const qCopy = JSON.parse(JSON.stringify(q));
                     qCopy.chapterTitle = c.title;
+                    qCopy.chapterId = c.id;
                     allQuestions.push(qCopy);
                 });
             }
@@ -710,6 +723,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!elements.quizResultView) return;
 
+        const quiz = state.activeQuiz;
+        const incorrectQuestions = [];
+        for (let i = 0; i < quiz.questions.length; i++) {
+            const q = quiz.questions[i];
+            const userAnswer = quiz.userAnswers[i];
+            if (userAnswer !== q.answer) {
+                incorrectQuestions.push({
+                    questionIndex: i + 1,
+                    question: q,
+                    userAnswer: userAnswer,
+                    correctAnswer: q.answer
+                });
+            }
+        }
+
         let levelWord = 'พยายามใหม่อีกครั้ง';
         let levelColor = 'var(--error)';
         let levelDesc = 'คุณสามารถกลับไปอ่านสรุปบทเรียนและกลับมาทำข้อสอบนี้อีกครั้งเพื่อเพิ่มความมั่นใจ!';
@@ -724,8 +752,138 @@ document.addEventListener('DOMContentLoaded', () => {
             levelDesc = 'คุณเข้าใจแนวคิดสำคัญได้ดี แนะนำให้ทบทวนข้อที่ตอบผิดเพื่อคะแนนที่ดียิ่งขึ้น';
         }
 
+        // ----------------------------------------------------
+        // Assessment for Learning (AfL) Dashboard Logic
+        // ----------------------------------------------------
+        let aflContent = '';
+        if (quiz.chapterId === null) {
+            // Mock Exam - Group by Chapter
+            const chapterAnalysis = {};
+            classroomResearchData.chapters.forEach(c => {
+                chapterAnalysis[c.id] = {
+                    id: c.id,
+                    title: c.title,
+                    total: 0,
+                    correct: 0
+                };
+            });
+
+            for (let i = 0; i < quiz.questions.length; i++) {
+                const q = quiz.questions[i];
+                const userAnswer = quiz.userAnswers[i];
+                const chId = q.chapterId;
+                if (chId && chapterAnalysis[chId]) {
+                    chapterAnalysis[chId].total++;
+                    if (userAnswer === q.answer) {
+                        chapterAnalysis[chId].correct++;
+                    }
+                }
+            }
+
+            aflContent += `
+                <div style="margin-top: 32px; width: 100%; text-align: left;">
+                    <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: var(--primary-light);">📊 Assessment for Learning (วิเคราะห์รายบทเรียน)</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">สัดส่วนความเข้าในแต่ละบทเรียน เพื่อคุณครูจะได้เลือกเจาะลึกบทเรียนเฉพาะจุดที่ยังไม่แม่นยำ:</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 8px;">
+            `;
+            
+            Object.values(chapterAnalysis).forEach(ch => {
+                if (ch.total === 0) return;
+                const pct = Math.round((ch.correct / ch.total) * 100);
+                let statusBadge = 'ต้องทบทวนด่วน 🔴';
+                let statusColor = 'var(--error)';
+                if (pct >= 80) {
+                    statusBadge = 'ดีเยี่ยม 🟢';
+                    statusColor = 'var(--success)';
+                } else if (pct >= 50) {
+                    statusBadge = 'พอใช้ 🟡';
+                    statusColor = 'var(--accent)';
+                }
+                
+                aflContent += `
+                    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                        <div style="flex-grow: 1; min-width: 0;">
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 2px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">บทที่ ${ch.id}: ${ch.title}</h4>
+                            <p style="font-size: 11px; color: var(--text-muted);">ทำถูก ${ch.correct}/${ch.total} ข้อ (${pct}%)</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                            <span style="font-size: 11px; font-weight: 600; color: ${statusColor}">${statusBadge}</span>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; border-color: var(--primary);" onclick="window.appActions.openChapter(${ch.id})">อ่าน 📖</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            aflContent += `
+                    </div>
+                </div>
+            `;
+        } else {
+            // Chapter Quiz - Review Incorrect Questions
+            aflContent += `
+                <div style="margin-top: 32px; width: 100%; text-align: left;">
+                    <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: var(--primary-light);">📊 Assessment for Learning (วิเคราะห์ข้อสอบที่ตอบผิด)</h3>
+            `;
+            
+            if (incorrectQuestions.length === 0) {
+                aflContent += `
+                    <div style="background-color: var(--success-light); border: 1px solid var(--success); border-radius: 12px; padding: 20px; text-align: center; color: var(--success); font-weight: 600; margin-bottom: 16px;">
+                        🎉 ยอดเยี่ยมมาก! คุณตอบถูกครบทุกข้อ (100% Accuracy) มีความรู้ที่สมบูรณ์แบบในบทเรียนนี้
+                    </div>
+                `;
+            } else {
+                aflContent += `
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">รายละเอียดคำถามที่คุณตอบผิด ${incorrectQuestions.length} ข้อ เพื่อทบทวนและทำความเข้าใจจุดที่เข้าใจคลาดเคลื่อน:</p>
+                    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 8px; margin-bottom: 16px;">
+                `;
+                
+                const optMap = { a: 'ก', b: 'ข', c: 'ค', d: 'ง' };
+                incorrectQuestions.forEach(item => {
+                    const q = item.question;
+                    const userAnswerText = q.options[item.userAnswer] || '';
+                    const correctAnswerText = q.options[item.correctAnswer] || '';
+                    
+                    aflContent += `
+                        <details style="background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer;">
+                            <summary style="font-weight: 600; font-size: 13px; color: var(--text-primary); outline: none;">
+                                ข้อที่ ${item.questionIndex}: ${q.question.substring(0, 75)}${q.question.length > 75 ? '...' : ''} <span style="color: var(--error); font-size: 12px;">❌ (คลิกทบทวนเฉลย)</span>
+                            </summary>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; cursor: default;" onclick="event.stopPropagation();">
+                                <p style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">คำถามเต็ม: <span style="font-weight: normal;">${q.question}</span></p>
+                                <p style="color: var(--error); margin-bottom: 4px;">❌ คำตอบของคุณ: <strong>${optMap[item.userAnswer]}.</strong> ${userAnswerText}</p>
+                                <p style="color: var(--success); margin-bottom: 12px;">✓ คำตอบที่ถูกต้อง: <strong>${optMap[item.correctAnswer]}.</strong> ${correctAnswerText}</p>
+                                <div style="background-color: var(--surface); padding: 12px; border-radius: 6px; border-left: 3px solid var(--primary);">
+                                    <strong style="color: var(--primary-light); font-size: 12px; display: block; margin-bottom: 4px;">คำอธิบายเฉลย:</strong>
+                                    <span style="color: var(--text-secondary); line-height: 1.5; font-size: 12.5px;">${q.explanation || 'ไม่มีคำอธิบาย'}</span>
+                                </div>
+                            </div>
+                        </details>
+                    `;
+                });
+                
+                aflContent += `
+                    </div>
+                `;
+            }
+            aflContent += `
+                </div>
+            `;
+        }
+
+        // Append actionable recommendations
+        aflContent += `
+            <div style="background-color: rgba(99, 102, 241, 0.05); border: 1px dashed var(--primary); border-radius: 12px; padding: 16px; text-align: left; width: 100%; margin: 16px 0 24px 0;">
+                <h4 style="font-size: 13px; font-weight: 700; color: var(--primary-light); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">🎯 คำแนะนำเพื่อพัฒนาการเรียนรู้</h4>
+                <ul style="font-size: 12px; color: var(--text-secondary); padding-left: 16px; line-height: 1.6;">
+                    <li><strong>ทบทวนเชิงรุก:</strong> คลิกปุ่ม "อ่าน 📖" หรือลิ้งก์เปิดอ่านสรุปบทเรียนในส่วนที่ตอบผิดเพื่อปิดจุดบกพร่องทันที</li>
+                    <li><strong>ทดสอบซ้ำ (Formative Re-evaluation):</strong> แนะนำให้กลับไปทบทวนสรุปเนื้อหาบทเรียน แล้วกลับมาทำสอบซ้ำเพื่อสร้างความจำระยะยาว</li>
+                    <li><strong>เชื่อมโยงเกณฑ์วิทยฐานะ:</strong> สังเกตว่าหัวข้อที่ทำได้ดี เชื่อมโยงกับข้อกำหนดการวิจัยในแท็บ "คู่มือวิทยฐานะ" อย่างไรเพื่อเตรียมทำผลงานจริง</li>
+                </ul>
+            </div>
+        `;
+
         elements.quizResultView.innerHTML = `
-            <div class="quiz-result-view">
+            <div class="quiz-result-view" style="max-width: 700px;">
                 <div class="result-circle">
                     <span class="result-score">${percent}%</span>
                     <span class="result-total">${score}/${total} คะแนน</span>
@@ -733,12 +891,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h2 class="result-heading" style="color: ${levelColor}">${levelWord}</h2>
                 <p class="result-desc">${levelDesc}</p>
                 
-                <div style="width: 100%; background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: left; margin: 10px 0;">
-                    <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">⏱ เวลาที่ใช้ทำข้อสอบ</h4>
-                    <p style="font-size: 16px; font-weight: 600; color: var(--text-primary);">
-                        ${Math.floor(state.activeQuiz.elapsedSeconds / 60)} นาที ${state.activeQuiz.elapsedSeconds % 60} วินาที
-                    </p>
+                <div style="width: 100%; background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; text-align: left; margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 2px;">⏱ เวลาที่ใช้ทำข้อสอบ</h4>
+                        <p style="font-size: 16px; font-weight: 600; color: var(--text-primary);">
+                            ${Math.floor(state.activeQuiz.elapsedSeconds / 60)} นาที ${state.activeQuiz.elapsedSeconds % 60} วินาที
+                        </p>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 2px;">📚 โหมดการสอบ</h4>
+                        <p style="font-size: 16px; font-weight: 600; color: var(--primary-light);">
+                            ${quiz.chapterId ? 'แบบทดสอบรายบท' : 'ข้อสอบจำลองเสมือนจริง'}
+                        </p>
+                    </div>
                 </div>
+
+                ${aflContent}
 
                 <div style="display: flex; gap: 16px; width: 100%;">
                     <button class="btn btn-primary" style="flex: 1;" onclick="window.appActions.resetQuizView()">ทำข้อสอบชุดอื่น</button>
