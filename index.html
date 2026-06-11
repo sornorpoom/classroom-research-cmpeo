@@ -28,17 +28,10 @@
                     <input type="email" id="reg-email" class="form-input" placeholder="ตัวอย่าง: somchai.j@school.go.th" required>
                 </div>
                 
-                <div style="margin-bottom: 24px;">
-                    <a class="advanced-toggle" id="advanced-toggle">ตั้งค่าระบบ Google Sheet (ขั้นสูง)</a>
-                    <div class="advanced-panel" id="advanced-panel" style="display: none;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="reg-sheets-url">Google Apps Script Web App URL</label>
-                            <input type="url" id="reg-sheets-url" class="form-input" value="https://script.google.com/macros/s/AKfycbwO8T0FDk-KwgmzfEfcGT1BIRYtSywRgesPrbexItWm8GF7NsZDMZVrkxcH2Tjri2al/exec" placeholder="https://script.google.com/macros/s/.../exec">
-                        </div>
-                    </div>
-                </div>
+                <input type="hidden" id="reg-sheets-url" value="https://script.google.com/macros/s/AKfycbwO8T0FDk-KwgmzfEfcGT1BIRYtSywRgesPrbexItWm8GF7NsZDMZVrkxcH2Tjri2al/exec">
                 
-                <button type="submit" class="btn btn-primary" id="reg-submit-btn" style="width: 100%; padding: 14px;">ลงทะเบียนและเริ่มต้นเรียน</button>
+                <button type="submit" class="btn btn-primary" id="reg-submit-btn" style="width: 100%; padding: 14px; margin-top: 12px;">ลงทะเบียนเพื่อเริ่มทำข้อสอบ</button>
+                <button type="button" class="btn btn-secondary" id="reg-cancel-btn" style="width: 100%; padding: 10px; margin-top: 12px; border: 1px solid var(--border);">ยกเลิก</button>
             </form>
         </div>
     </div>

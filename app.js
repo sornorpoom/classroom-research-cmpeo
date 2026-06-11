@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         regSchool: document.getElementById('reg-school'),
         regEmail: document.getElementById('reg-email'),
         regSheetsUrl: document.getElementById('reg-sheets-url'),
-        advancedToggle: document.getElementById('advanced-toggle'),
-        advancedPanel: document.getElementById('advanced-panel'),
+        regCancelBtn: document.getElementById('reg-cancel-btn'),
         sidebarResetProfileBtn: document.getElementById('sidebar-reset-profile-btn'),
         dbWelcomeTitle: document.getElementById('db-welcome-title'),
 
@@ -139,17 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Registration Form Event Handlers
-    if (elements.advancedToggle) {
-        elements.advancedToggle.addEventListener('click', (e) => {
+    if (elements.regCancelBtn) {
+        elements.regCancelBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            const panel = elements.advancedPanel;
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-                elements.advancedToggle.textContent = 'ซ่อนการตั้งค่าระบบ Google Sheet';
-            } else {
-                panel.style.display = 'none';
-                elements.advancedToggle.textContent = 'ตั้งค่าระบบ Google Sheet (ขั้นสูง)';
+            if (elements.registrationOverlay) {
+                elements.registrationOverlay.style.display = 'none';
             }
+            state.pendingQuiz = null; // Clear pending action
         });
     }
 
@@ -468,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${highScore !== undefined ? `<span class="quiz-pill" style="background-color: var(--success-light); color: var(--success);">คะแนนสูงสุด: ${highScore}%</span>` : ''}
                 </div>
                 <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 6px;">${c.title}</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">ทำข้อสอบประจำบทเรียน จำนวน ${c.questions.Count} ข้อ</p>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">ทำข้อสอบประจำบทเรียน จำนวน ${c.questions.length} ข้อ</p>
                 <button class="btn btn-secondary" style="width: 100%; font-size: 12px;" onclick="window.appActions.startQuiz(${c.id})">เริ่มทำข้อสอบ</button>
             `;
             elements.quizChaptersList.appendChild(card);
@@ -481,8 +476,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startChapterQuiz(chapterId) {
+        if (!isRegistered()) {
+            state.pendingQuiz = { type: 'chapter', id: chapterId };
+            if (elements.registrationOverlay) {
+                elements.registrationOverlay.style.display = 'flex';
+            }
+            return;
+        }
+
         const chapter = classroomResearchData.chapters.find(c => c.id === chapterId);
-        if (!chapter || !chapter.questions || chapter.questions.Count === 0) return;
+        if (!chapter || !chapter.questions || chapter.questions.length === 0) return;
         
         // Setup state
         state.activeQuiz.isActive = true;
@@ -505,10 +508,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startMockExam() {
+        if (!isRegistered()) {
+            state.pendingQuiz = { type: 'mock' };
+            if (elements.registrationOverlay) {
+                elements.registrationOverlay.style.display = 'flex';
+            }
+            return;
+        }
+
         // Collect all questions from all chapters
         let allQuestions = [];
         classroomResearchData.chapters.forEach(c => {
-            if (c.questions && c.questions.Count > 0) {
+            if (c.questions && c.questions.length > 0) {
                 // Add chapter context to each question
                 c.questions.forEach(q => {
                     const qCopy = JSON.parse(JSON.stringify(q));
@@ -1060,47 +1071,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------
     // REGISTRATION GATEKEEPER & GOOGLE SHEETS INTEGRATION
     // ----------------------------------------------------
-    function checkRegistrationState() {
+    function isRegistered() {
         const profileStr = localStorage.getItem('userProfile');
+        if (!profileStr) return false;
+        try {
+            const profile = JSON.parse(profileStr);
+            return !!(profile && profile.fullName && profile.school && profile.email);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function checkRegistrationState() {
         const savedUrl = localStorage.getItem('googleSheetsUrl') || 'https://script.google.com/macros/s/AKfycbwO8T0FDk-KwgmzfEfcGT1BIRYtSywRgesPrbexItWm8GF7NsZDMZVrkxcH2Tjri2al/exec';
         
         if (elements.regSheetsUrl) {
             elements.regSheetsUrl.value = savedUrl;
         }
 
-        if (profileStr) {
-            try {
-                const profile = JSON.parse(profileStr);
-                if (profile && profile.fullName && profile.school && profile.email) {
-                    // Hide overlay
-                    if (elements.registrationOverlay) {
-                        elements.registrationOverlay.style.display = 'none';
-                    }
-                    // Show reset button in sidebar
-                    if (elements.sidebarResetProfileBtn) {
-                        elements.sidebarResetProfileBtn.style.display = 'block';
-                    }
-                    // Personalize welcome message
-                    if (elements.dbWelcomeTitle) {
-                        elements.dbWelcomeTitle.innerHTML = `สวัสดีครับ คุณครู ${profile.fullName} (${profile.school}) 🧑‍🏫`;
-                    }
-                    
-                    // Render current state
-                    renderDashboard();
-                    return;
-                }
-            } catch (e) {
-                console.error("Error parsing userProfile:", e);
+        if (isRegistered()) {
+            const profile = JSON.parse(localStorage.getItem('userProfile'));
+            // Hide overlay
+            if (elements.registrationOverlay) {
+                elements.registrationOverlay.style.display = 'none';
+            }
+            // Show reset button in sidebar
+            if (elements.sidebarResetProfileBtn) {
+                elements.sidebarResetProfileBtn.style.display = 'block';
+            }
+            // Personalize welcome message
+            if (elements.dbWelcomeTitle) {
+                elements.dbWelcomeTitle.innerHTML = `สวัสดีครับ คุณครู ${profile.fullName} (${profile.school}) 🧑‍🏫`;
+            }
+        } else {
+            // Hide overlay on load to allow free reading access
+            if (elements.registrationOverlay) {
+                elements.registrationOverlay.style.display = 'none';
+            }
+            // Hide reset button in sidebar
+            if (elements.sidebarResetProfileBtn) {
+                elements.sidebarResetProfileBtn.style.display = 'none';
+            }
+            // Restore default welcome message
+            if (elements.dbWelcomeTitle) {
+                elements.dbWelcomeTitle.innerHTML = `ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫`;
             }
         }
-
-        // Lock App (Show overlay, hide reset button)
-        if (elements.registrationOverlay) {
-            elements.registrationOverlay.style.display = 'flex';
-        }
-        if (elements.sidebarResetProfileBtn) {
-            elements.sidebarResetProfileBtn.style.display = 'none';
-        }
+        
+        // Render current dashboard state
+        renderDashboard();
     }
 
     function submitRegistration() {
@@ -1153,6 +1172,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         checkRegistrationState();
+
+        // Run pending quiz if any
+        if (state.pendingQuiz) {
+            const pending = state.pendingQuiz;
+            state.pendingQuiz = null; // Clear pending action
+            if (pending.type === 'chapter') {
+                startChapterQuiz(pending.id);
+            } else if (pending.type === 'mock') {
+                startMockExam();
+            }
+        }
     }
 
     function resetUserProfile() {
