@@ -34,6 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM Elements
     const elements = {
+        // Registration Modal
+        registrationOverlay: document.getElementById('registration-overlay'),
+        registrationForm: document.getElementById('registration-form'),
+        regName: document.getElementById('reg-name'),
+        regSchool: document.getElementById('reg-school'),
+        regEmail: document.getElementById('reg-email'),
+        regSheetsUrl: document.getElementById('reg-sheets-url'),
+        advancedToggle: document.getElementById('advanced-toggle'),
+        advancedPanel: document.getElementById('advanced-panel'),
+        sidebarResetProfileBtn: document.getElementById('sidebar-reset-profile-btn'),
+        dbWelcomeTitle: document.getElementById('db-welcome-title'),
+
         // Navigation & Theme
         themeToggleBtn: document.getElementById('theme-toggle-btn'),
         themeIconSun: document.getElementById('theme-icon-sun'),
@@ -123,6 +135,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.dbQuickQuizBtn) {
         elements.dbQuickQuizBtn.addEventListener('click', () => {
             switchTab('quiz');
+        });
+    }
+
+    // Registration Form Event Handlers
+    if (elements.advancedToggle) {
+        elements.advancedToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            const panel = elements.advancedPanel;
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                elements.advancedToggle.textContent = 'ซ่อนการตั้งค่าระบบ Google Sheet';
+            } else {
+                panel.style.display = 'none';
+                elements.advancedToggle.textContent = 'ตั้งค่าระบบ Google Sheet (ขั้นสูง)';
+            }
+        });
+    }
+
+    if (elements.registrationForm) {
+        elements.registrationForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitRegistration();
+        });
+    }
+
+    if (elements.sidebarResetProfileBtn) {
+        elements.sidebarResetProfileBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetUserProfile();
         });
     }
 
@@ -1017,6 +1058,135 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ----------------------------------------------------
+    // REGISTRATION GATEKEEPER & GOOGLE SHEETS INTEGRATION
+    // ----------------------------------------------------
+    function checkRegistrationState() {
+        const profileStr = localStorage.getItem('userProfile');
+        const savedUrl = localStorage.getItem('googleSheetsUrl') || 'https://script.google.com/macros/s/AKfycbwO8T0FDk-KwgmzfEfcGT1BIRYtSywRgesPrbexItWm8GF7NsZDMZVrkxcH2Tjri2al/exec';
+        
+        if (elements.regSheetsUrl) {
+            elements.regSheetsUrl.value = savedUrl;
+        }
+
+        if (profileStr) {
+            try {
+                const profile = JSON.parse(profileStr);
+                if (profile && profile.fullName && profile.school && profile.email) {
+                    // Hide overlay
+                    if (elements.registrationOverlay) {
+                        elements.registrationOverlay.style.display = 'none';
+                    }
+                    // Show reset button in sidebar
+                    if (elements.sidebarResetProfileBtn) {
+                        elements.sidebarResetProfileBtn.style.display = 'block';
+                    }
+                    // Personalize welcome message
+                    if (elements.dbWelcomeTitle) {
+                        elements.dbWelcomeTitle.innerHTML = `สวัสดีครับ คุณครู ${profile.fullName} (${profile.school}) 🧑‍🏫`;
+                    }
+                    
+                    // Render current state
+                    renderDashboard();
+                    return;
+                }
+            } catch (e) {
+                console.error("Error parsing userProfile:", e);
+            }
+        }
+
+        // Lock App (Show overlay, hide reset button)
+        if (elements.registrationOverlay) {
+            elements.registrationOverlay.style.display = 'flex';
+        }
+        if (elements.sidebarResetProfileBtn) {
+            elements.sidebarResetProfileBtn.style.display = 'none';
+        }
+    }
+
+    function submitRegistration() {
+        const fullName = elements.regName.value.trim();
+        const school = elements.regSchool.value.trim();
+        const email = elements.regEmail.value.trim();
+        const sheetsUrl = elements.regSheetsUrl ? elements.regSheetsUrl.value.trim() : '';
+
+        let hasError = false;
+
+        // Validation
+        if (fullName.length < 3) {
+            elements.regName.classList.add('error');
+            hasError = true;
+        }
+        if (school.length < 3) {
+            elements.regSchool.classList.add('error');
+            hasError = true;
+        }
+        // Basic email check
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            elements.regEmail.classList.add('error');
+            hasError = true;
+        }
+
+        if (hasError) return;
+
+        // Save profile
+        const profile = { fullName, school, email };
+        localStorage.setItem('userProfile', JSON.stringify(profile));
+
+        // Submit to Google Sheet (if URL provided)
+        if (sheetsUrl) {
+            localStorage.setItem('googleSheetsUrl', sheetsUrl);
+            const params = new URLSearchParams({
+                fullName: fullName,
+                school: school,
+                email: email
+            });
+            const syncUrl = sheetsUrl.includes('?') ? `${sheetsUrl}&${params.toString()}` : `${sheetsUrl}?${params.toString()}`;
+            
+            // Fire-and-forget submission using no-cors to bypass browser CORS block for local files
+            fetch(syncUrl, {
+                method: 'GET',
+                mode: 'no-cors'
+            }).catch(err => {
+                console.warn("Google Sheets synchronization call issued.", err);
+            });
+        }
+
+        checkRegistrationState();
+    }
+
+    function resetUserProfile() {
+        if (confirm("คุณต้องการออกจากระบบใช่หรือไม่? (ข้อมูลส่วนตัวและประวัติการเรียนทั้งหมดจะถูกลบออกอย่างถาวร)")) {
+            // Clear localStorage progress & profile
+            localStorage.removeItem('userProfile');
+            localStorage.removeItem('readChapters');
+            localStorage.removeItem('quizHighScores');
+            localStorage.removeItem('mockHistory');
+
+            // Reset in-memory state
+            state.readChapters = [];
+            state.quizHighScores = {};
+            state.mockHistory = [];
+
+            // Clear form inputs completely
+            if (elements.regName) elements.regName.value = '';
+            if (elements.regSchool) elements.regSchool.value = '';
+            if (elements.regEmail) elements.regEmail.value = '';
+
+            checkRegistrationState();
+        }
+    }
+
+    // Input listeners to remove error highlights
+    [elements.regName, elements.regSchool, elements.regEmail].forEach(input => {
+        if (input) {
+            input.addEventListener('input', () => {
+                input.classList.remove('error');
+            });
+        }
+    });
+
+    // ----------------------------------------------------
     // INITIAL APP ACTIONS FOR WINDOW ATTACHMENT
     // ----------------------------------------------------
     window.appActions = {
@@ -1037,6 +1207,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Initial Load - Dashboard
-    renderDashboard();
+    // Initial Load - Check Registration Gatekeeper
+    checkRegistrationState();
 });

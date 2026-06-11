@@ -7,6 +7,42 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body data-theme="dark">
+    <!-- Registration Gateway Overlay -->
+    <div class="registration-overlay" id="registration-overlay" style="display: none;">
+        <div class="registration-card">
+            <span style="font-size: 48px; display: block; margin-bottom: 16px;">🧑‍🏫</span>
+            <h2>ลงทะเบียนเข้าใช้งาน</h2>
+            <p>กรุณากรอกข้อมูลส่วนตัวเพื่อบันทึกประวัติการเรียนและการทดสอบความรู้การวิจัยในชั้นเรียน</p>
+            
+            <form id="registration-form" onsubmit="event.preventDefault();">
+                <div class="form-group">
+                    <label for="reg-name">ชื่อ - นามสกุล</label>
+                    <input type="text" id="reg-name" class="form-input" placeholder="ตัวอย่าง: ครูสมชาย ใจดี" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-school">โรงเรียน</label>
+                    <input type="text" id="reg-school" class="form-input" placeholder="ตัวอย่าง: โรงเรียนวัดเนินเขา" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">อีเมล</label>
+                    <input type="email" id="reg-email" class="form-input" placeholder="ตัวอย่าง: somchai.j@school.go.th" required>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <a class="advanced-toggle" id="advanced-toggle">ตั้งค่าระบบ Google Sheet (ขั้นสูง)</a>
+                    <div class="advanced-panel" id="advanced-panel" style="display: none;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="reg-sheets-url">Google Apps Script Web App URL</label>
+                            <input type="url" id="reg-sheets-url" class="form-input" value="https://script.google.com/macros/s/AKfycbwO8T0FDk-KwgmzfEfcGT1BIRYtSywRgesPrbexItWm8GF7NsZDMZVrkxcH2Tjri2al/exec" placeholder="https://script.google.com/macros/s/.../exec">
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="reg-submit-btn" style="width: 100%; padding: 14px;">ลงทะเบียนและเริ่มต้นเรียน</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Mobile Navigation Top Bar -->
     <div class="mobile-nav-bar">
         <button class="menu-toggle-btn" id="menu-toggle-btn" aria-label="Toggle Menu">
@@ -63,18 +99,19 @@
             </li>
         </ul>
         
-        <div class="sidebar-footer">
-            <span style="font-size: 12px; color: var(--text-muted);">โหมดถนอมสายตา</span>
-            <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle Theme">
-                <!-- Sun Icon -->
-                <svg id="theme-icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display: none;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
-                </svg>
-                <!-- Moon Icon -->
-                <svg id="theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                </svg>
-            </button>
+        <div class="sidebar-footer" style="flex-direction: column; gap: 12px; align-items: stretch;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span style="font-size: 12px; color: var(--text-muted);">โหมดถนอมสายตา</span>
+                <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle Theme">
+                    <svg id="theme-icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
+                    </svg>
+                    <svg id="theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                </button>
+            </div>
+            <button class="btn btn-secondary" id="sidebar-reset-profile-btn" style="width: 100%; font-size: 12px; padding: 8px 12px; display: none; color: var(--error); border-color: var(--border); font-weight: 600;">🚪 ออกจากระบบ (Logout)</button>
         </div>
     </div>
 
@@ -96,7 +133,7 @@
         <div class="tab-content active" id="dashboard-tab">
             <div class="grid-container">
                 <div class="card welcome-card" style="grid-column: span 2;">
-                    <h2>ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫</h2>
+                    <h2 id="db-welcome-title">ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫</h2>
                     <p>พอร์ทัลแบบอินเตอร์แอคทีฟนี้ถูกสร้างขึ้นมาเพื่อช่วยให้คุณครูมีความเข้าใจอย่างลึกซึ้งเกี่ยวกับการทำวิจัยในชั้นเรียน (Classroom Research) ซึ่งเป็นหัวใจสำคัญในการพัฒนาคุณภาพการศึกษา</p>
                     <div style="display: flex; gap: 12px;">
                         <button class="btn btn-white" id="db-quick-start-btn">อ่านสรุปความรู้</button>
