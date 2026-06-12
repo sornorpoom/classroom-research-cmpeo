@@ -1,16 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Check if data is available
-    if (typeof classroomResearchData === 'undefined') {
-        console.error("classroomResearchData is not defined. Make sure data.js is loaded first.");
+    if (typeof classroomResearchData === 'undefined' || typeof classroomAssessmentData === 'undefined') {
+        console.error("Course data is not defined. Make sure data.js is loaded first.");
         return;
     }
 
+    // Active course state setup
+    const isFirstLoad = !localStorage.getItem('currentCourse');
+    const currentCourse = localStorage.getItem('currentCourse') || 'research';
+
     // App State
     const state = {
+        currentCourse: currentCourse,
+        courseData: currentCourse === 'research' ? classroomResearchData : classroomAssessmentData,
         currentTab: 'dashboard',
-        readChapters: JSON.parse(localStorage.getItem('readChapters') || '[]'),
-        quizHighScores: JSON.parse(localStorage.getItem('quizHighScores') || '{}'),
-        mockHistory: JSON.parse(localStorage.getItem('mockHistory') || '[]'),
+        readChapters: JSON.parse(
+            localStorage.getItem(`${currentCourse}_readChapters`) || 
+            (currentCourse === 'research' ? localStorage.getItem('readChapters') : null) || 
+            '[]'
+        ),
+        quizHighScores: JSON.parse(
+            localStorage.getItem(`${currentCourse}_quizHighScores`) || 
+            (currentCourse === 'research' ? localStorage.getItem('quizHighScores') : null) || 
+            '{}'
+        ),
+        mockHistory: JSON.parse(
+            localStorage.getItem(`${currentCourse}_mockHistory`) || 
+            (currentCourse === 'research' ? localStorage.getItem('mockHistory') : null) || 
+            '[]'
+        ),
         theme: localStorage.getItem('theme') || 'dark',
         
         // Active Quiz State
@@ -34,6 +52,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM Elements
     const elements = {
+        // Course Selector elements
+        courseSelectOverlay: document.getElementById('course-select-overlay'),
+        selectResearchBtn: document.getElementById('select-research-btn'),
+        selectAssessmentBtn: document.getElementById('select-assessment-btn'),
+        activeCoursePillBtn: document.getElementById('active-course-pill-btn'),
+        activeCourseLabel: document.getElementById('active-course-label'),
+        mainHeaderTitle: document.querySelector('.header-title h1'),
+        mainHeaderSub: document.querySelector('.header-title p'),
+        dbCourseTitle: document.getElementById('db-course-title'),
+        quizMockDesc: document.getElementById('quiz-mock-desc'),
+        dbWelcomeDesc: document.getElementById('db-welcome-desc'),
+
         // Registration Modal
         registrationOverlay: document.getElementById('registration-overlay'),
         registrationForm: document.getElementById('registration-form'),
@@ -102,6 +132,17 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.themeToggleBtn.addEventListener('click', toggleTheme);
     if (elements.quizCancelBtn) {
         elements.quizCancelBtn.addEventListener('click', cancelQuiz);
+    }
+    
+    // Course Selector Event Listeners
+    if (elements.selectResearchBtn) {
+        elements.selectResearchBtn.addEventListener('click', () => selectCourse('research'));
+    }
+    if (elements.selectAssessmentBtn) {
+        elements.selectAssessmentBtn.addEventListener('click', () => selectCourse('assessment'));
+    }
+    if (elements.activeCoursePillBtn) {
+        elements.activeCoursePillBtn.addEventListener('click', showCourseSelection);
     }
     
     // Sidebar Navigation Tabs
@@ -227,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------
     function renderDashboard() {
         // Reading Progress
-        const totalChapters = 12;
+        const totalChapters = state.courseData.chapters.length;
         const readCount = state.readChapters.length;
         const readPercent = Math.round((readCount / totalChapters) * 100);
         
@@ -235,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.dbReadingProgressText.textContent = `${readPercent}%`;
         }
         if (elements.dbReadingProgressSub) {
-            elements.dbReadingProgressSub.textContent = `อ่านแล้ว ${readCount} จาก 12 บท`;
+            elements.dbReadingProgressSub.textContent = `อ่านแล้ว ${readCount} จาก ${totalChapters} บท`;
         }
         if (elements.dbReadingProgressBar) {
             elements.dbReadingProgressBar.style.strokeDashoffset = 251 - (251 * readPercent) / 100;
@@ -277,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         elements.dbStatsGrid.innerHTML = '';
         
-        classroomResearchData.chapters.forEach(c => {
+        state.courseData.chapters.forEach(c => {
             const isRead = state.readChapters.includes(c.id);
             const highScore = state.quizHighScores[c.id];
             
@@ -310,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render Sidebar Chapter List
         elements.learnChaptersList.innerHTML = '';
-        classroomResearchData.chapters.forEach(c => {
+        state.courseData.chapters.forEach(c => {
             const isRead = state.readChapters.includes(c.id);
             const activeClass = state.activeChapterId === c.id ? 'active' : '';
             
@@ -331,18 +372,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Render Reader Pane
-        const activeChapter = classroomResearchData.chapters.find(c => c.id === state.activeChapterId);
+        const activeChapter = state.courseData.chapters.find(c => c.id === state.activeChapterId);
         if (!activeChapter || !elements.learnReaderPane) return;
 
         const isRead = state.readChapters.includes(activeChapter.id);
         
         // Format summary content nicely into sections
         const formattedContent = formatSummary(activeChapter.summary);
+        const courseLabel = state.currentCourse === 'research' ? 'ความรู้วิจัยในชั้นเรียน' : 'การวัดผลในชั้นเรียน';
 
         elements.learnReaderPane.innerHTML = `
             <div class="reader-header">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;">ความรู้วิจัยในชั้นเรียน • บทที่ ${activeChapter.id}</span>
+                    <span style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;">${courseLabel} • บทที่ ${activeChapter.id}</span>
                     <span class="quiz-pill" style="background-color: ${isRead ? 'var(--success-light)' : 'var(--bg-primary)'}; color: ${isRead ? 'var(--success)' : 'var(--text-secondary)'}">
                         ${isRead ? 'อ่านแล้ว ✓' : 'ยังไม่ได้อ่าน'}
                     </span>
@@ -369,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 state.readChapters.push(activeChapter.id);
             }
-            localStorage.setItem('readChapters', JSON.stringify(state.readChapters));
+            localStorage.setItem(`${state.currentCourse}_readChapters`, JSON.stringify(state.readChapters));
             renderLearnTab();
         });
 
@@ -393,31 +435,54 @@ document.addEventListener('DOMContentLoaded', () => {
             line = line.trim();
             if (line.length === 0) return;
 
-            // Check if it's a primary section header (e.g. 1. บทนำ, 2. แนวคิด...)
-            if (/^\d+\.\s*(.*)$/.test(line)) {
+            // Check if it's a sub-header (nested numbers like 1.1, 1.2 or plain text headers)
+            const isSubHeader = /^\d+\.\d+\s+(.*)$/.test(line) || 
+                (line.length < 80 && !/^\d+\./.test(line) && /^(ความหมาย|แนวคิด|การส่งเสริม|การบูรณาการ|กระบวนการ|ประโยชน์|ข้อจำกัด|แนวทาง|วิธีการ|ตัวอย่าง|บทเรียน|ประเภท|องค์ประกอบ|หลักสำคัญ|ค้นหา|หลีกเลี่ยง|การแปล|การจัด|แหล่ง|ขอบเขต|หลักเกณฑ์|เทคนิค|นิยาม|ค่าของ|การใช้|วิธี|ความตรง|ความเที่ยง|ระดับ|สถิติ|บทบาท|ระยะเวลา|การทบทวน|เครื่องมือ|การวิเคราะห์|สรุป|เป้าหมาย|เกณฑ์|สมรรถนะ|การประกัน)/.test(line));
+
+            // Check if it's a bullet list item
+            const isBulletItem = line.startsWith('-') || line.startsWith('•') || /^\-\s*(.*)$/.test(line);
+
+            if (isSubHeader) {
                 if (listOpen) {
                     html += '</ul>';
                     listOpen = false;
                 }
-                html += `<h3 style="font-size: 20px; font-weight: 700; color: var(--primary-light); margin-top: 32px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px;">${line}</h3>`;
+                html += `<h4 style="font-size: 16px; font-weight: 600; color: var(--accent); margin-top: 24px; margin-bottom: 12px;">${line}</h4>`;
             }
-            // Check if it's a sub-header (looks like a bold text title)
-            else if (line.length < 80 && /^(ความหมาย|แนวคิด|การส่งเสริม|การบูรณาการ|กระบวนการ|ประโยชน์|ข้อจำกัด|แนวทาง|วิธีการ|ตัวอย่าง|บทเรียน|ประเภท|องค์ประกอบ|หลักสำคัญ|ค้นหา|หลีกเลี่ยง|การแปล|การจัด|แหล่ง|ขอบเขต|หลักเกณฑ์|เทคนิค|นิยาม|ค่าของ|การใช้|วิธี|ความตรง|ความเที่ยง|ระดับ|สถิติ|บทบาท|ระยะเวลา|การทบทวน|เครื่องมือ|การวิเคราะห์|สรุป)/.test(line)) {
-                if (listOpen) {
-                    html += '</ul>';
-                    listOpen = false;
-                }
-                html += `<h4 style="font-size: 16px; font-weight: 600; color: var(--accent); margin-top: 20px; margin-bottom: 8px;">${line}</h4>`;
-            }
-            // Check if it's a bullet point (starts with - or bullet symbol)
-            else if (line.startsWith('-') || line.startsWith('•') || /^\-\s*(.*)$/.test(line)) {
+            else if (isBulletItem) {
                 if (!listOpen) {
                     html += '<ul style="margin-bottom: 16px; padding-left: 20px; line-height: 1.8;">';
                     listOpen = true;
                 }
                 const cleanItem = line.replace(/^[\-\•]\s*/, '');
                 html += `<li style="margin-bottom: 8px; color: var(--text-secondary);">${cleanItem}</li>`;
-            } 
+            }
+            // Check if it starts with a number (e.g. 1. , 2. )
+            else if (/^\d+\.\s*(.*)$/.test(line)) {
+                // Check if it's a list item starting with a number
+                const isNumberedListItem = line.includes(':') || 
+                    line.includes('：') || 
+                    line.endsWith(':') || 
+                    line.endsWith('：') || 
+                    /^\d+\.\s*(ความสามารถ|ผู้เรียน|ทักษะ|ความรู้|ภาพลักษณ์|คุณลักษณะ|แรงจูงใจ|การสังเกต|การสัมภาษณ์|การตรวจ|การประเมินด้วย|กำหนด|วิเคราะห์|เน้น|ใช้|ต้อง|สถานศึกษา|Best|ค\.ศ\.|พ\.ศ\.|B\.C\.|ตัวอย่าง)/.test(line) ||
+                    line.length > 70;
+
+                if (isNumberedListItem) {
+                    if (!listOpen) {
+                        html += '<ul style="margin-bottom: 16px; padding-left: 20px; line-height: 1.8;">';
+                        listOpen = true;
+                    }
+                    // Keep the text formatting clean
+                    html += `<li style="margin-bottom: 8px; color: var(--text-secondary);">${line}</li>`;
+                } else {
+                    // Primary section header
+                    if (listOpen) {
+                        html += '</ul>';
+                        listOpen = false;
+                    }
+                    html += `<h3 style="font-size: 20px; font-weight: 700; color: var(--primary-light); margin-top: 32px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px;">${line}</h3>`;
+                }
+            }
             // Normal paragraph
             else {
                 if (listOpen) {
@@ -452,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render chapter selector for Quizzes
         elements.quizChaptersList.innerHTML = '';
-        classroomResearchData.chapters.forEach(c => {
+        state.courseData.chapters.forEach(c => {
             const highScore = state.quizHighScores[c.id];
             
             const card = document.createElement('div');
@@ -484,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const chapter = classroomResearchData.chapters.find(c => c.id === chapterId);
+        const chapter = state.courseData.chapters.find(c => c.id === chapterId);
         if (!chapter || !chapter.questions || chapter.questions.length === 0) return;
         
         // Setup state
@@ -518,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Collect all questions from all chapters
         let allQuestions = [];
-        classroomResearchData.chapters.forEach(c => {
+        state.courseData.chapters.forEach(c => {
             if (c.questions && c.questions.length > 0) {
                 // Add chapter context to each question
                 c.questions.forEach(q => {
@@ -751,7 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const prevBest = state.quizHighScores[quiz.chapterId] || 0;
             if (percent > prevBest) {
                 state.quizHighScores[quiz.chapterId] = percent;
-                localStorage.setItem('quizHighScores', JSON.stringify(state.quizHighScores));
+                localStorage.setItem(`${state.currentCourse}_quizHighScores`, JSON.stringify(state.quizHighScores));
             }
         } else {
             // Mock Exam score
@@ -762,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 percent: percent,
                 timeSeconds: quiz.elapsedSeconds
             });
-            localStorage.setItem('mockHistory', JSON.stringify(state.mockHistory));
+            localStorage.setItem(`${state.currentCourse}_mockHistory`, JSON.stringify(state.mockHistory));
         }
 
         renderResultScreen(score, totalQuestions, percent);
@@ -811,7 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (quiz.chapterId === null) {
             // Mock Exam - Group by Chapter
             const chapterAnalysis = {};
-            classroomResearchData.chapters.forEach(c => {
+            state.courseData.chapters.forEach(c => {
                 chapterAnalysis[c.id] = {
                     id: c.id,
                     title: c.title,
@@ -1114,7 +1179,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Restore default welcome message
             if (elements.dbWelcomeTitle) {
-                elements.dbWelcomeTitle.innerHTML = `ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫`;
+                elements.dbWelcomeTitle.innerHTML = state.currentCourse === 'research'
+                    ? `ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫`
+                    : `ยินดีต้อนรับเข้าสู่ระบบเตรียมสอบวัดผลในชั้นเรียน! 🧑‍🏫`;
             }
         }
         
@@ -1192,6 +1259,13 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('readChapters');
             localStorage.removeItem('quizHighScores');
             localStorage.removeItem('mockHistory');
+            localStorage.removeItem('research_readChapters');
+            localStorage.removeItem('research_quizHighScores');
+            localStorage.removeItem('research_mockHistory');
+            localStorage.removeItem('assessment_readChapters');
+            localStorage.removeItem('assessment_quizHighScores');
+            localStorage.removeItem('assessment_mockHistory');
+            localStorage.removeItem('currentCourse');
 
             // Reset in-memory state
             state.readChapters = [];
@@ -1203,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.regSchool) elements.regSchool.value = '';
             if (elements.regEmail) elements.regEmail.value = '';
 
-            checkRegistrationState();
+            window.location.reload();
         }
     }
 
@@ -1237,6 +1311,101 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Initial Load - Check Registration Gatekeeper
+    function showCourseSelection() {
+        if (elements.courseSelectOverlay) {
+            elements.courseSelectOverlay.style.display = 'flex';
+        }
+    }
+
+    function selectCourse(courseKey) {
+        state.currentCourse = courseKey;
+        state.courseData = courseKey === 'research' ? classroomResearchData : classroomAssessmentData;
+        localStorage.setItem('currentCourse', courseKey);
+        
+        // Load course-specific progress
+        state.readChapters = JSON.parse(
+            localStorage.getItem(`${courseKey}_readChapters`) || 
+            (courseKey === 'research' ? localStorage.getItem('readChapters') : null) || 
+            '[]'
+        );
+        state.quizHighScores = JSON.parse(
+            localStorage.getItem(`${courseKey}_quizHighScores`) || 
+            (courseKey === 'research' ? localStorage.getItem('quizHighScores') : null) || 
+            '{}'
+        );
+        state.mockHistory = JSON.parse(
+            localStorage.getItem(`${courseKey}_mockHistory`) || 
+            (courseKey === 'research' ? localStorage.getItem('mockHistory') : null) || 
+            '[]'
+        );
+
+        // Clamp activeChapterId to new course size
+        const chapterExists = state.courseData.chapters.some(c => c.id === state.activeChapterId);
+        if (!chapterExists) {
+            state.activeChapterId = 1;
+        }
+
+        if (elements.courseSelectOverlay) {
+            elements.courseSelectOverlay.style.display = 'none';
+        }
+        
+        updateCourseUI();
+        
+        if (state.currentTab === 'dashboard') {
+            renderDashboard();
+        } else {
+            switchTab(state.currentTab);
+        }
+    }
+
+    function updateCourseUI() {
+        const isResearch = state.currentCourse === 'research';
+        
+        if (elements.activeCourseLabel) {
+            elements.activeCourseLabel.textContent = isResearch ? 'วิจัยในชั้นเรียน' : 'การวัดผลในชั้นเรียน';
+        }
+        
+        if (elements.mainHeaderTitle) {
+            elements.mainHeaderTitle.textContent = isResearch ? 'วิจัยในชั้นเรียนสำหรับครู' : 'การวัดผลในชั้นเรียนสำหรับครู';
+        }
+        if (elements.mainHeaderSub) {
+            elements.mainHeaderSub.textContent = isResearch 
+                ? 'พัฒนาการสอน ยกระดับคุณภาพการเรียนรู้ สู่ความก้าวหน้าทางวิชาชีพ' 
+                : 'วัดความรู้ประเมินผล พัฒนาการสอนและสมรรถนะผู้เรียนตามเกณฑ์วิทยฐานะ';
+        }
+
+        if (elements.dbCourseTitle) {
+            elements.dbCourseTitle.innerHTML = isResearch
+                ? '📚 รายชื่อบทเรียนเตรียมสอบวิจัยในชั้นเรียน'
+                : '📚 รายชื่อบทเรียนเตรียมสอบการวัดผลในชั้นเรียน';
+        }
+
+        if (elements.quizMockDesc) {
+            const totalChapters = state.courseData.chapters.length;
+            elements.quizMockDesc.textContent = `สุ่มข้อสอบ 30 ข้อจากบทเรียนทั้ง ${totalChapters} บท เหมาะสำหรับการจำลองเวลาสอบจริงและประเมินระดับความพร้อมโดยภาพรวม`;
+        }
+
+        if (elements.dbWelcomeDesc) {
+            elements.dbWelcomeDesc.textContent = isResearch
+                ? 'พอร์ทัลแบบอินเตอร์แอคทีฟนี้ถูกสร้างขึ้นมาเพื่อช่วยให้คุณครูมีความเข้าใจอย่างลึกซึ้งเกี่ยวกับการทำวิจัยในชั้นเรียน (Classroom Research) ซึ่งเป็นหัวใจสำคัญในการพัฒนาคุณภาพการศึกษา'
+                : 'พอร์ทัลแบบอินเตอร์แอคทีฟนี้ถูกสร้างขึ้นมาเพื่อช่วยให้คุณครูมีความเข้าใจอย่างลึกซึ้งเกี่ยวกับการวัดและประเมินผลการเรียนรู้ในชั้นเรียน (Classroom Assessment) ซึ่งเป็นหัวใจสำคัญในการยกระดับผลสัมฤทธิ์ทางการศึกษา';
+        }
+
+        if (!isRegistered() && elements.dbWelcomeTitle) {
+            elements.dbWelcomeTitle.innerHTML = isResearch
+                ? `ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫`
+                : `ยินดีต้อนรับเข้าสู่ระบบเตรียมสอบวัดผลในชั้นเรียน! 🧑‍🏫`;
+        }
+    }
+
+    // Initial Load - Check Registration Gatekeeper & Course Selector
+    if (isFirstLoad) {
+        showCourseSelection();
+    } else {
+        if (elements.courseSelectOverlay) {
+            elements.courseSelectOverlay.style.display = 'none';
+        }
+        updateCourseUI();
+    }
     checkRegistrationState();
 });

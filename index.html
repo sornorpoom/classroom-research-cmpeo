@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ครูนักวิจัย Hub - ระบบเตรียมสอบวิจัยในชั้นเรียนสำหรับครูผู้สอน</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.0.2">
 </head>
 <body data-theme="dark">
     <!-- Registration Gateway Overlay -->
@@ -36,6 +36,31 @@
         </div>
     </div>
 
+    <!-- Course Selection Overlay -->
+    <div class="course-select-overlay" id="course-select-overlay" style="display: none;">
+        <div class="course-select-card">
+            <span style="font-size: 48px; display: block; margin-bottom: 16px;">📚</span>
+            <h2>เลือกวิชาและคลังความรู้</h2>
+            <p>ยินดีต้อนรับคุณครู! กรุณาเลือกคลังความรู้ที่ต้องการเข้าศึกษาและฝึกทำแบบทดสอบเพื่อเริ่มต้น</p>
+            
+            <div class="course-options-grid">
+                <div class="course-card-option" id="select-research-btn">
+                    <div class="course-card-icon">📊</div>
+                    <h3>วิจัยในชั้นเรียน</h3>
+                    <p>มุ่งเน้นการทบทวนปัญหาในห้องเรียน กระบวนการทำวิจัยเชิงปฏิบัติการ นวัตกรรมหลัก และการเขียนรายงานตามวิทยฐานะ</p>
+                    <div class="course-card-meta">12 บทเรียน • 185 ข้อสอบย่อย</div>
+                </div>
+                
+                <div class="course-card-option" id="select-assessment-btn">
+                    <div class="course-card-icon">📝</div>
+                    <h3>การวัดผลในชั้นเรียน</h3>
+                    <p>ครอบคลุมการวัดผลสัมฤทธิ์ทางการเรียน เครื่องมือทางพุทธิพิสัย ทักษะพิสัย จิตพิสัย อัตนัย คุณภาพเครื่องมือ และการประกันคุณภาพ</p>
+                    <div class="course-card-meta">16 บทเรียน • 744 ข้อสอบย่อย</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Navigation Top Bar -->
     <div class="mobile-nav-bar">
         <button class="menu-toggle-btn" id="menu-toggle-btn" aria-label="Toggle Menu">
@@ -54,6 +79,15 @@
             <div class="logo-text">
                 <h2>ครูนักวิจัย Hub</h2>
                 <p>CLASSROOM RESEARCH PORTAL</p>
+            </div>
+        </div>
+        
+        <!-- Course Switcher Pill -->
+        <div class="sidebar-course-selector">
+            <div class="active-course-pill" id="active-course-pill-btn">
+                <span class="pill-dot"></span>
+                <span id="active-course-label">วิจัยในชั้นเรียน</span>
+                <span style="font-size: 10px; margin-left: auto; opacity: 0.6; padding-right: 4px;">▼</span>
             </div>
         </div>
         
@@ -127,7 +161,7 @@
             <div class="grid-container">
                 <div class="card welcome-card" style="grid-column: span 2;">
                     <h2 id="db-welcome-title">ยินดีต้อนรับเข้าสู่ระบบครูนักวิจัย! 🧑‍🏫</h2>
-                    <p>พอร์ทัลแบบอินเตอร์แอคทีฟนี้ถูกสร้างขึ้นมาเพื่อช่วยให้คุณครูมีความเข้าใจอย่างลึกซึ้งเกี่ยวกับการทำวิจัยในชั้นเรียน (Classroom Research) ซึ่งเป็นหัวใจสำคัญในการพัฒนาคุณภาพการศึกษา</p>
+                    <p id="db-welcome-desc">พอร์ทัลแบบอินเตอร์แอคทีฟนี้ถูกสร้างขึ้นมาเพื่อช่วยให้คุณครูมีความเข้าใจอย่างลึกซึ้งเกี่ยวกับการทำวิจัยในชั้นเรียน (Classroom Research) ซึ่งเป็นหัวใจสำคัญในการพัฒนาคุณภาพการศึกษา</p>
                     <div style="display: flex; gap: 12px;">
                         <button class="btn btn-white" id="db-quick-start-btn">อ่านสรุปความรู้</button>
                         <button class="btn btn-secondary" id="db-quick-quiz-btn" style="background-color: rgba(255,255,255,0.15); border: none; color: white;">ทำข้อสอบทันที</button>
@@ -176,7 +210,7 @@
                 </div>
             </div>
 
-            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+            <h3 id="db-course-title" style="font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
                 📚 รายชื่อบทเรียนเตรียมสอบวิจัยในชั้นเรียน
             </h3>
             
@@ -211,7 +245,7 @@
                 <div class="card" style="background-color: var(--bg-secondary); border-style: dashed; border-width: 2px; padding: 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 32px; border-radius: 16px;">
                     <div style="max-width: 500px;">
                         <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">📝 ทดสอบข้อสอบเสมือนจริงแบบสุ่ม (Mock Exam)</h3>
-                        <p style="font-size: 13px; color: var(--text-secondary);">สุ่มข้อสอบ 30 ข้อจากบทเรียนทั้ง 12 บท เหมาะสำหรับการจำลองเวลาสอบจริงและประเมินระดับความพร้อมโดยภาพรวม</p>
+                        <p id="quiz-mock-desc" style="font-size: 13px; color: var(--text-secondary);">สุ่มข้อสอบ 30 ข้อจากบทเรียนทั้ง 12 บท เหมาะสำหรับการจำลองเวลาสอบจริงและประเมินระดับความพร้อมโดยภาพรวม</p>
                     </div>
                     <button class="btn btn-primary" id="mock-exam-btn">เริ่มทำข้อสอบเสมือนจริง</button>
                 </div>
@@ -385,8 +419,8 @@
     </div>
 
     <!-- Data script -->
-    <script src="data.js"></script>
+    <script src="data.js?v=1.0.2"></script>
     <!-- App Logic script -->
-    <script src="app.js"></script>
+    <script src="app.js?v=1.0.2"></script>
 </body>
 </html>
